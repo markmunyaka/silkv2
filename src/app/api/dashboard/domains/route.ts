@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { searchBusinesses } from '@/lib/search-service';
+import { searchBusinesses } from '@/lib/scraper/search-service';
 
 export async function GET() {
   try {
