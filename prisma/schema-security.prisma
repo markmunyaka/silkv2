@@ -1,0 +1,178 @@
+// Secure user credential architecture for PDF Summarizer
+// Features: Salted password hashing, MFA backup codes, login throttling
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Each account can have multiple MFA methods
+model MFA {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type             String   // "totp" | "backup_codes" | "sms"
+  secret           String?  // TOTP secret (encrypted at rest)
+  backupCodes      String?  // JSON array of backup codes (hashed)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Audit log for login attempts and security events
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  event       String   // "login_attempt" | "login_success" | "mfa_required" | "password_reset"
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean
+  reason      String?  // Why it failed (invalid credentials, rate limited, etc.)
+  metadata    String?  // JSON for additional context
+  createdAt   DateTime @default(now())
+}
+
+// Rate limiting per IP address
+model RateLimit {
+  id        String   @id @default(cuid())
+  ipAddress String
+  requests  Int      @default(0)
+  windowStart DateTime @default(now())
+  windowEnd DateTime
+  locked    Boolean  @default(false)
+}
+
+// Password reset tokens (short-lived)
+model PasswordReset {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String   @unique
+  expiresAt   DateTime
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// Session management with configurable expiry
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model User {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  emailVerified   DateTime?
+  image           String?
+  // Password is already hashed with bcrypt/argon2 + salt at the application layer
+  // Never store plain-text passwords
+  password        String?
+  credits         Int      @default(2)
+  isSubscribed    Boolean  @default(false)
+  subscriptionPlan String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  accounts        Account[]
+  sessions        Session[]
+  files           File[]
+  mfa             MFA[]
+  auditLogs       AuditLog[]
+  rateLimits      RateLimit[]
+}
+
+model File {
+  id           String  @id @default(cuid())
+  userId       String
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName     String
+  originalText String  @db.Text
+  summary      String  @db.Text
+  audioUrl     String?
+  videoUrl     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// @@index for performance on frequently queried fields
+model MFA {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type             String
+  secret           String?
+  backupCodes      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId, type])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  event       String
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean
+  reason      String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([event, createdAt])
+}
+
+model RateLimit {
+  id        String   @id @default(cuid())
+  ipAddress String
+  requests  Int      @default(0)
+  windowStart DateTime @default(now())
+  windowEnd DateTime
+  locked    Boolean  @default(false)
+
+  @@unique([ipAddress, windowStart])
+}
+
+model PasswordReset {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String   @unique
+  expiresAt   DateTime
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([token])
+  @@index([userId, used])
+}

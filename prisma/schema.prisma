@@ -1,0 +1,543 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?   // null for OAuth users
+  role            String    @default("standard") // "standard" | "admin"
+  status          String    @default("active")   // "active" | "suspended" | "frozen"
+  violationReason String?   // Reason for freeze/suspension
+  frozenAt        DateTime? // When the user was frozen
+  bannedAt        DateTime? // When the user was permanently banned
+  lastLoginAt     DateTime? // Last successful login timestamp
+  credits         Int       @default(2) // Free trial: 2 credits
+  isSubscribed    Boolean   @default(false)
+  subscriptionPlan String?   // "pro", "unlimited", etc.
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  accounts        Account[]
+  sessions        Session[]
+  files           File[]
+  emailTemplates  EmailTemplate[]
+  emailCampaigns  EmailCampaign[]
+  emailRecipientLists EmailRecipientList[]
+  scrapedLeads        ScrapedLead[]
+  warmupInboxes       WarmupInbox[]
+  videoGenerations    VideoGeneration[]
+  shortenedUrls       ShortenedUrl[]
+  storeOrders         StoreOrder[]
+  walletTransactions  WalletTransaction[]
+}
+
+model File {
+  id           String  @id @default(cuid())
+  userId       String
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fileName     String
+  originalText String
+  summary      String
+  fileSize     Int?    // Size in bytes
+  textLength   Int?    // Character count of original text
+
+  audioUrl     String?
+  videoUrl     String?
+
+  videoGeneration VideoGeneration? // 1:1 optional link to a generated video
+
+  // Admin metadata for file management
+  adminNotes   String?
+  flagged      Boolean @default(false)
+  downloadedByAdminAt DateTime?
+  deletedByAdminAt DateTime? // Soft delete - file still in DB but marked as deleted by admin
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Email Mailer Models
+model EmailTemplate {
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  subject     String
+  htmlContent String
+  textContent String?
+  description String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaigns   EmailCampaign[]
+
+  @@index([userId])
+}
+
+model EmailCampaign {
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  templateId  String
+  template    EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  status      String  @default("draft") // draft, scheduled, in_progress, completed, failed
+  
+  emailProvider String  @default("nodemailer") // nodemailer, sendgrid, aws_ses, etc.
+  providerConfig String? // JSON config for the provider
+  
+  recipientListId String
+  recipientList   EmailRecipientList @relation(fields: [recipientListId], references: [id], onDelete: Cascade)
+  
+  senderEmail String
+  senderName  String?
+  
+  totalRecipients Int     @default(0)
+  sentCount   Int     @default(0)
+  failedCount Int     @default(0)
+  
+  scheduledAt DateTime?
+  sentAt      DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  emailLogs   EmailLog[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model EmailRecipientList {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  description String?
+  
+  totalCount Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaigns EmailCampaign[]
+  recipients EmailRecipient[]
+
+  @@index([userId])
+}
+
+model EmailRecipient {
+  id          String  @id @default(cuid())
+  recipientListId String
+  recipientList   EmailRecipientList @relation(fields: [recipientListId], references: [id], onDelete: Cascade)
+
+  email       String
+  firstName   String?
+  lastName    String?
+  customData  String? // JSON for dynamic template variables
+
+  createdAt   DateTime @default(now())
+
+  @@unique([recipientListId, email])
+  @@index([recipientListId])
+}
+
+model ScrapedLead {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyName String
+  industry    String?
+  location    String
+  website     String?
+  email       String?
+  phone       String?
+
+  // discovered → enriched → pushed | failed
+  status      String   @default("discovered")
+  source      String?  // e.g., "google_places", "serper"
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, status])
+}
+
+// === Email Warm-up & Deliverability Optimizer ===
+model WarmupInbox {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  email          String   @unique
+  smtpHost       String
+  smtpPort       Int      @default(587)
+  smtpUser       String
+  smtpPass       String
+  imapHost       String
+  imapPort       Int      @default(993)
+  imapUser       String?
+  imapPass       String?
+
+  /// active, paused, exhausted, error
+  status         String   @default("active")
+  dailySentCount Int      @default(0)
+  dailyLimit     Int      @default(30)
+
+  /// ramp_up, steady, cooldown
+  warmupPhase    String   @default("ramp_up")
+  lastResetAt    DateTime @default(now())
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sentThreads    WarmupThread[]  @relation("sender")
+  receivedThreads WarmupThread[] @relation("receiver")
+  logs           WarmupLog[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model WarmupThread {
+  id             String     @id @default(cuid())
+  senderId       String
+  sender         WarmupInbox @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId     String
+  receiver       WarmupInbox @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  subject        String
+  /// JSON array of { role: 'sent' | 'replied', content: string, messageId: string, timestamp: string }
+  threadHistory  String     @default("[]")
+  lastMessageAt  DateTime?
+  messageCount   Int        @default(0)
+
+  /// active, completed, stale
+  status         String     @default("active")
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  logs           WarmupLog[]
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+}
+
+model WarmupLog {
+  id             String     @id @default(cuid())
+  threadId       String
+  thread         WarmupThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  inboxId        String
+  inbox          WarmupInbox  @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+
+  /// sent, replied
+  direction      String
+  messageId      String?
+  subject        String
+  bodyPreview    String?
+
+  /// pending, sent, replied, failed
+  status         String     @default("pending")
+  errorMessage   String?
+  sentAt         DateTime?
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([threadId])
+  @@index([inboxId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ShortenedUrl {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  originalUrl String
+  shortCode   String   @unique
+  clicks      Int      @default(0)
+
+  /// Optional human-readable title for the link
+  title       String?
+
+  /// Whether the link is active (inactive links return a 410 Gone)
+  isActive    Boolean  @default(true)
+
+  /// Optional expiration date — after this date the link returns 410 Gone
+  expiresAt   DateTime?
+
+  /// Timestamp of the last click / redirect
+  lastClickedAt DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([shortCode])
+  @@index([isActive])
+}
+
+model VideoGeneration {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  taskId         String   @unique
+  prompt         String
+  status         String   @default("queued") // queued, processing, succeeded, failed
+  videoUrl       String?
+  thumbnailUrl   String?
+  errorMessage   String?
+
+  /// Path to locally saved MP4 (if downloaded before Kling URL expires)
+  savedFilePath  String?
+  /// Whether the "Silk Road V2" watermark has been applied
+  watermarked    Boolean  @default(false)
+  /// The original Kling download URL
+  sourceUrl      String?
+  /// Expiry timestamp for the Kling temp download link
+  urlExpiresAt   DateTime?
+
+  fileId         String?  @unique // optional link to File model if generated from a PDF summary
+  file           File?    @relation(fields: [fileId], references: [id])
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([taskId])
+  @@index([status])
+}
+
+model SmtpProvider {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "Main AWS SES", "SendGrid Pro"
+  provider    String   @default("custom") // "aws_ses" | "sendgrid" | "custom"
+  
+  // SMTP connection details
+  host        String
+  port        Int      @default(587)
+  secure      Boolean  @default(false)
+  username    String
+  password    String
+  
+  // Sender defaults
+  fromEmail   String
+  fromName    String?
+  
+  // Rate limits
+  maxEmailsPerDay  Int  @default(300)
+  maxEmailsPerHour Int  @default(50)
+  delayBetweenEmailsMs Int @default(200)
+  
+  // Bomber content configuration
+  bomberSubject String?  // Subject line used by Email Bomber
+  bomberHtml    String?  // HTML content used by Email Bomber
+
+  // Dedicated Bomber SMTP — separate from the provider's main SMTP
+  bomberSmtpHost     String?  // Bomber-specific SMTP host (falls back to main host)
+  bomberSmtpPort     Int?     // Bomber-specific SMTP port (falls back to main port)
+  bomberSmtpSecure   Boolean? // Bomber-specific SSL/TLS (falls back to main secure)
+  bomberSmtpUsername String?  // Bomber-specific SMTP username (falls back to main username)
+  bomberSmtpPassword String?  // Bomber-specific SMTP password (falls back to main password)
+  
+  // Status
+  isActive    Boolean  @default(true)
+  isVisibleToUsers Boolean @default(true) // visible for users to select in campaigns
+  
+  // Metadata
+  lastTestedAt  DateTime?
+  testStatus    String?  // "passed" | "failed" | null
+  testError     String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RdpProduct {
+  id          String   @id @default(cuid())
+  name        String
+  specs       String
+  ram         String
+  storage     String
+  cpu         String
+  bandwidth   String
+  os          String   // JSON array stored as string
+  location    String
+  price       Float
+  priceUnit   String   @default("month") // "month" | "week" | "day"
+  stock       Int      @default(0)
+  isActive    Boolean  @default(true)
+  features    String   // JSON array stored as string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CpanelProduct {
+  id            String   @id @default(cuid())
+  name          String
+  specs         String
+  diskSpace     String
+  bandwidth     String
+  websites      Int
+  emailAccounts Int
+  databases     Int
+  ssl           Boolean  @default(true)
+  location      String
+  price         Float
+  priceUnit     String   @default("month") // "month" | "year"
+  stock         Int      @default(0)
+  isActive      Boolean  @default(true)
+  features      String   // JSON array stored as string
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model StoreOrder {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productType String   // "rdp" | "cpanel"
+  productId   String
+  productName String
+  productSpecs String?
+
+  // Snapshot of purchase config
+  price       Float
+  duration    String?  // "1month" | "3months" | "1year" etc
+  config      String?  // JSON: OS selection, domain, etc.
+
+  // Delivery status
+  status      String   @default("pending") // pending, active, expired, cancelled, failed
+  credentials String?  // JSON: RDP IP/user/pass or cPanel URL/user/pass
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([productType])
+  @@index([status])
+}
+
+model EmailLog {
+  id          String  @id @default(cuid())
+  campaignId  String
+  campaign    EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  recipientEmail String
+  
+  status      String  @default("pending") // pending, sent, failed, bounced, opened, clicked
+  
+  messageId   String? // Provider-specific message ID
+  errorMessage String?
+  
+  openedAt    DateTime?
+  clickedAt   DateTime?
+
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([recipientEmail])
+  @@index([status])
+}
+
+// ===== Wallet Transaction Model =====
+model WalletTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Transaction type: "deposit" | "spend" | "refund"
+  type            String
+
+  // Amount in email credits
+  amount          Int
+
+  // USD value of the transaction (if deposit)
+  amountUsd       Float?
+
+  // Crypto details for deposits
+  crypto          String?  // "usdt-trc20" | "usdt-erc20" | "litecoin" | "solana"
+  network         String?  // "TRC-20" | "ERC-20" | "LTC" | "SOL"
+  txHash          String?  // Blockchain transaction hash
+  walletAddress   String?  // Recipient wallet address
+
+  // Status
+  status          String   @default("completed") // "pending" | "completed" | "failed"
+
+  // Description / label for the transaction
+  description     String?
+
+  // Link back to payment order ID if deposit
+  orderId         String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([type])
+}

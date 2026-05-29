@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  pdf-summarizer-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pdf-summarizer-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - FASTAPI_ENV=development
+      - FASTAPI_DEBUG=true
+      - FASTAPI_HOST=0.0.0.0
+      - FASTAPI_PORT=8000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - LAKERA_GUARD_API_KEY=${LAKERA_GUARD_API_KEY}
+      - WATERMARK_SECRET_KEY=${WATERMARK_SECRET_KEY}
+      - LOG_LEVEL=INFO
+      - TRACE_REQUESTS=true
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+    volumes:
+      - ./logs:/app/logs
+      - ./app:/app/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - pdf-summarizer-network
+    depends_on:
+      - pdf-summarizer-redis
+
+  pdf-summarizer-redis:
+    image: redis:7-alpine
+    container_name: pdf-summarizer-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - pdf-summarizer-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  pdf-summarizer-network:
+    driver: bridge
+
+volumes:
+  logs:
