@@ -9,11 +9,12 @@ const prisma = new PrismaClient();
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const file = await prisma.file.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: {
           select: {
@@ -71,14 +72,15 @@ export async function GET(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const { hardDelete = false } = body as { hardDelete?: boolean };
 
     const file = await prisma.file.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!file) {
@@ -91,7 +93,7 @@ export async function DELETE(
     if (hardDelete) {
       // Permanently delete file
       await prisma.file.delete({
-        where: { id: params.id },
+        where: { id },
       });
 
       return NextResponse.json({
@@ -102,7 +104,7 @@ export async function DELETE(
 
     // Soft delete - mark as deleted but keep data
     await prisma.file.update({
-      where: { id: params.id },
+      where: { id },
       data: { deletedByAdminAt: new Date() },
     });
 
@@ -124,16 +126,17 @@ export async function DELETE(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json() as {
       adminNotes?: string;
       flagged?: boolean;
     };
 
     const file = await prisma.file.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!file) {
@@ -144,7 +147,7 @@ export async function PUT(
     }
 
     const updated = await prisma.file.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         adminNotes: body.adminNotes !== undefined ? body.adminNotes : file.adminNotes,
         flagged: body.flagged !== undefined ? body.flagged : file.flagged,

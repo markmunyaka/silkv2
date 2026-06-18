@@ -9,11 +9,12 @@ const prisma = new PrismaClient();
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const file = await prisma.file.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         fileName: true,
@@ -45,7 +46,7 @@ export async function GET(
 
     // Mark as downloaded by admin
     await prisma.file.update({
-      where: { id: params.id },
+      where: { id },
       data: { downloadedByAdminAt: new Date() },
     });
 

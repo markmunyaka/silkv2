@@ -3,12 +3,12 @@ import { generateRequestId, createApiResponse } from '@/lib/domains/domain-error
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { registrationId: string } },
+  { params }: { params: Promise<{ registrationId: string }> },
 ) {
   const requestId = generateRequestId();
 
   try {
-    const { registrationId } = params;
+    const { registrationId } = await params;
 
     if (!registrationId) {
       return NextResponse.json(

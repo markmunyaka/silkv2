@@ -1,16 +1,14 @@
-/**
- * Domain Search Component - Integration Guide & Examples
- * Complete examples for integrating the premium Domain Search component
- */
+# Domain Search Component - Integration Guide & Examples
 
-// ============================================================================
-// EXAMPLE 1: BASIC INTEGRATION
-// ============================================================================
+Complete examples for integrating the premium Domain Search component.
 
-/**
- * app/domains/page.tsx
- * Simple page with domain search
- */
+---
+
+## Example 1: Basic Integration
+
+**`app/domains/page.tsx`** — Simple page with domain search
+
+```tsx
 import DomainSearch from '@/components/premium/DomainSearch';
 
 export default function DomainsPage() {
@@ -42,15 +40,15 @@ export default function DomainsPage() {
     </main>
   );
 }
+```
 
-// ============================================================================
-// EXAMPLE 2: DASHBOARD INTEGRATION
-// ============================================================================
+---
 
-/**
- * app/dashboard/workspace/[workspaceId]/domains/page.tsx
- * Domain search within dashboard context
- */
+## Example 2: Dashboard Integration
+
+**`app/dashboard/workspace/[workspaceId]/domains/page.tsx`** — Domain search within dashboard context
+
+```tsx
 'use client';
 
 import { useState } from 'react';
@@ -120,15 +118,15 @@ export default function WorkspaceDomainPage({ params }: DomainsPageProps) {
     </div>
   );
 }
+```
 
-// ============================================================================
-// EXAMPLE 3: REACT QUERY INTEGRATION (ADVANCED)
-// ============================================================================
+---
 
-/**
- * hooks/useDomainSearchQuery.ts
- * Advanced hook using React Query for caching and background updates
- */
+## Example 3: React Query Integration (Advanced)
+
+**`hooks/useDomainSearchQuery.ts`** — Advanced hook using React Query for caching and background updates
+
+```ts
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 
 interface UseDomainSearchQueryProps {
@@ -169,15 +167,15 @@ export const useDomainSearchQuery = (
     cacheTime: 10 * 60 * 1000, // 10 minutes
   });
 };
+```
 
-// ============================================================================
-// EXAMPLE 4: CUSTOM STYLING & THEMING
-// ============================================================================
+---
 
-/**
- * Tailwind CSS Custom Config for Premium Effects
- * Add to tailwind.config.ts
- */
+## Example 4: Custom Styling & Theming
+
+**Tailwind CSS Custom Config for Premium Effects** — Add to `tailwind.config.ts`
+
+```ts
 const tailwindConfig = {
   theme: {
     extend: {
@@ -216,15 +214,15 @@ const tailwindConfig = {
     },
   },
 };
+```
 
-// ============================================================================
-// EXAMPLE 5: FULL PAGE LAYOUT WITH FEATURES
-// ============================================================================
+---
 
-/**
- * app/get-domain/page.tsx
- * Landing page for domain search with features
- */
+## Example 5: Full Page Layout with Features
+
+**`app/get-domain/page.tsx`** — Landing page for domain search with features
+
+```tsx
 import DomainSearch from '@/components/premium/DomainSearch';
 import { Globe, Zap, Shield, BarChart3 } from 'lucide-react';
 
@@ -340,16 +338,15 @@ export default function GetDomainPage() {
     </main>
   );
 }
+```
 
-// ============================================================================
-// EXAMPLE 6: COMPONENT USAGE PATTERNS
-// ============================================================================
+---
 
-/**
- * Common Usage Patterns & Best Practices
- */
+## Example 6: Component Usage Patterns
 
-// Pattern 1: With Loading & Error Boundaries
+### Pattern 1: With Loading & Error Boundaries
+
+```tsx
 export function DomainSearchWithBoundary() {
   return (
     <ErrorBoundary fallback={<div>Something went wrong</div>}>
@@ -359,11 +356,13 @@ export function DomainSearchWithBoundary() {
     </ErrorBoundary>
   );
 }
+```
 
-// Pattern 2: With Analytics Tracking
+### Pattern 2: With Analytics Tracking
+
+```tsx
 export function DomainSearchWithTracking() {
   const handleDomainSelect = (domain: string, price: number) => {
-    // Track event
     gtag.event('domain_selected', {
       domain,
       price,
@@ -373,38 +372,40 @@ export function DomainSearchWithTracking() {
 
   return <DomainSearch onDomainSelect={handleDomainSelect} />;
 }
+```
 
-// Pattern 3: With A/B Testing
+### Pattern 3: With A/B Testing
+
+```tsx
 export function DomainSearchWithABTest() {
   const isVariant = useABTest('domain-search-v2');
 
   return isVariant ? <DomainSearch /> : <LegacyDomainSearch />;
 }
+```
 
-// ============================================================================
-// STYLING REFERENCE
-// ============================================================================
+---
 
-/**
- * Key Tailwind Classes Used in Components:
- *
- * Glassmorphism:
- * - bg-white/5 to bg-white/30 (transparency levels)
- * - border-white/10 to border-white/30 (border opacity)
- * - backdrop-blur-xl (glass effect)
- * - backdrop-saturate-150 (color depth)
- *
- * Gradients:
- * - bg-gradient-to-r from-emerald-500 to-blue-500
- * - from-emerald-500/20 via-blue-500/20 to-purple-500/20
- *
- * Animations:
- * - animate-spin (loading)
- * - animate-pulse (skeleton)
- * - animate-in fade-in (entrance)
- *
- * Responsive:
- * - text-sm sm:text-base md:text-lg (font scaling)
- * - grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 (grid layout)
- * - hidden sm:flex (show/hide by breakpoint)
- */
+## Styling Reference
+
+**Key Tailwind Classes Used in Components:**
+
+### Glassmorphism
+- `bg-white/5` to `bg-white/30` (transparency levels)
+- `border-white/10` to `border-white/30` (border opacity)
+- `backdrop-blur-xl` (glass effect)
+- `backdrop-saturate-150` (color depth)
+
+### Gradients
+- `bg-gradient-to-r from-emerald-500 to-blue-500`
+- `from-emerald-500/20 via-blue-500/20 to-purple-500/20`
+
+### Animations
+- `animate-spin` (loading)
+- `animate-pulse` (skeleton)
+- `animate-in fade-in` (entrance)
+
+### Responsive
+- `text-sm sm:text-base md:text-lg` (font scaling)
+- `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` (grid layout)
+- `hidden sm:flex` (show/hide by breakpoint)
