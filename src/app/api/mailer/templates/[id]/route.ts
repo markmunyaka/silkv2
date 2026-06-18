@@ -4,8 +4,9 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const session = await getServerSession();
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     const template = await prisma.emailTemplate.findFirst({
-      where: { id: params.id, userId: user.id },
+      where: { id, userId: user.id },
     });
 
     if (!template) {
@@ -34,8 +35,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const session = await getServerSession();
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -50,7 +52,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const template = await prisma.emailTemplate.findFirst({
-      where: { id: params.id, userId: user.id },
+      where: { id, userId: user.id },
     });
 
     if (!template) {
@@ -61,7 +63,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const { name, subject, htmlContent, textContent, description } = body;
 
     const updatedTemplate = await prisma.emailTemplate.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name && { name }),
         ...(subject && { subject }),
@@ -78,8 +80,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const session = await getServerSession();
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -94,7 +97,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     const template = await prisma.emailTemplate.findFirst({
-      where: { id: params.id, userId: user.id },
+      where: { id, userId: user.id },
     });
 
     if (!template) {
@@ -102,7 +105,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     await prisma.emailTemplate.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

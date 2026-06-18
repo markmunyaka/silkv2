@@ -9,16 +9,17 @@ const prisma = new PrismaClient();
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const { userId } = await params;
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
 
     // Verify user exists
     const user = await prisma.user.findUnique({
-      where: { id: params.userId },
+      where: { id: userId },
       select: {
         id: true,
         name: true,
@@ -41,13 +42,13 @@ export async function GET(
     const [total, files] = await Promise.all([
       prisma.file.count({
         where: {
-          userId: params.userId,
+          userId,
           deletedByAdminAt: null, // Exclude soft-deleted files
         },
       }),
       prisma.file.findMany({
         where: {
-          userId: params.userId,
+          userId,
           deletedByAdminAt: null,
         },
         skip: (page - 1) * pageSize,
